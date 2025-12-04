@@ -1,0 +1,66 @@
+import logging
+from app.config import CACHE_TTL, MARZNESHIN_SERVICES
+from app.db.db_base import DBBase
+from app.models.panel import Panel
+from app.models.user import UserLimit
+from app.utils.panel.marzneshin_panel import get_user
+from cachetools import TTLCache
+
+logger = logging.getLogger(__name__)
+
+class MarzneshinDB(DBBase):
+    def __init__(self, panel: Panel):
+        self.panel = panel
+        self.cache = TTLCache(maxsize=100000, ttl=CACHE_TTL)
+        self.services_limit = self._parse_services(MARZNESHIN_SERVICES)
+
+    def _parse_services(self, services_str: str) -> dict:
+        limits = {}
+        if not services_str:
+            return limits
+        try:
+            for item in services_str.split(','):
+                if ':' in item:
+                    sid, limit = item.split(':')
+                    limits[int(sid.strip())] = int(limit.strip())
+        except Exception as e:
+            logger.error(f"Failed to parse MARZNESHIN_SERVICES: {e}")
+        return limits
+
+    def save(self) -> None:
+        pass
+
+    def add(self, data):
+        pass
+
+    def delete(self, condition: callable):
+        pass
+
+    def update(self, condition: callable, data):
+        pass
+
+    async def get(self, condition: callable):
+        username = getattr(condition.right, "value", condition.right)
+
+        if username in self.cache:
+            return self.cache[username]
+
+        user_data = await get_user(username, self.panel)
+        
+        if not user_data:
+            user_limit = UserLimit(name=username, limit=0)
+            self.cache[username] = user_limit
+            return user_limit
+
+        service_id = user_data.get("service_id")
+        limit = self.services_limit.get(service_id, 0) if service_id is not None else 0
+        
+        user_limit = UserLimit(name=username, limit=limit)
+        self.cache[username] = user_limit
+        
+        logger.info(f"Synced user {username} (Service: {service_id}) -> Limit: {limit}")
+        return user_limit
+
+    def get_all(self, condition: callable):
+        pass
+    
