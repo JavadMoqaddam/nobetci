@@ -60,6 +60,7 @@ class MarzNodeService:
                 except SSLError:
                     break
                 except Exception as error:
+                    panel_data.token = None
                     log_message = (
                         f"Failed to connect to this marznode [marznode id: {node.id}]"
                         + f" [marznode name: {node.name}]"
