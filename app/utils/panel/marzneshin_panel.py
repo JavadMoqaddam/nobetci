@@ -97,3 +97,29 @@ async def get_marznodes(panel_data: Panel) -> list[MarzNode] | ValueError:
     logger.error(message)
     raise ValueError(message)
 
+async def get_user(username: str, panel_data: Panel) -> dict | None:
+    for attempt in range(5):
+        get_panel_token = await get_token(panel_data)
+        if isinstance(get_panel_token, ValueError):
+            raise get_panel_token
+        token = get_panel_token.token
+        headers = {
+            "Authorization": f"Bearer {token}",
+            "Accept": "application/json"
+        }
+        for scheme in ["https", "http"]:
+            url = f"{scheme}://{panel_data.domain}/api/users/{username}"
+            try:
+                async with httpx.AsyncClient(verify=False) as client:
+                    response = await client.get(url, headers=headers, timeout=10)
+                    
+                    if response.status_code == 404:
+                        return None
+                        
+                    response.raise_for_status()
+                    return response.json()
+            except Exception as error:
+                logger.error(f"Error fetching user {username}: {error}")
+                continue
+        await asyncio.sleep(1)
+    return None
