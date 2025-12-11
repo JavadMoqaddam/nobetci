@@ -1,5 +1,6 @@
 import asyncio
-from app.config import PANEL_ADDRESS, PANEL_CUSTOM_NODES, PANEL_PASSWORD, PANEL_USERNAME
+from app.config import MARZNESHIN_SYNC, PANEL_ADDRESS, PANEL_CUSTOM_NODES, PANEL_PASSWORD, PANEL_USERNAME
+from app.db.marzneshin_db import MarzneshinDB
 from app.models.panel import Panel
 from app.service.check_service import CheckService
 from app.service.marznode_service import TASKS, MarzNodeService
@@ -19,7 +20,7 @@ async def start_marznode_tasks():
     )
 
     node_service = MarzNodeService(CheckService(
-        storage, user_limit_db))
+        storage, MARZNESHIN_SYNC and MarzneshinDB(paneltype) or user_limit_db))
 
     marznodes = await get_marznodes(paneltype)
 

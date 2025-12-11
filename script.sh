@@ -11,6 +11,8 @@ PANEL_USER=""
 PANEL_PASSWORD=""
 PANEL_TYPE=""
 SYNC_WITH_PANEL=False
+MARZNESHIN_SYNC=False
+MARZNESHIN_SERVICES=""
 SECRET_KEY=""
 API_USERNAME=""
 API_PASSWORD=""
@@ -315,6 +317,43 @@ get_panel_sync() {
     echo "SYNC_WITH_PANEL set to $SYNC_WITH_PANEL"
 }
 
+get_marzneshin_sync() {
+    while true; do
+        read -p "Are you want sync Nöbetci with panel? (y/n): " ANSWER
+
+        case "$ANSWER" in
+            y|Y)
+                MARZNESHIN_SYNC="True"
+                get_marzneshin_services
+                break
+                ;;
+            n|N)
+                MARZNESHIN_SYNC="False"
+                break
+                ;;
+            *)
+                echo "Invalid input. Please enter y or n."
+                ;;
+        esac
+    done
+
+    if grep -q "^MARZNESHIN_SYNC=" "$ENV_FILE"; then
+        sed -i.bak "s|^MARZNESHIN_SYNC=.*|MARZNESHIN_SYNC=$MARZNESHIN_SYNC|" "$ENV_FILE"
+    else
+        echo "MARZNESHIN_SYNC=$MARZNESHIN_SYNC" >> "$ENV_FILE"
+    fi
+    echo "MARZNESHIN_SYNC set to $MARZNESHIN_SYNC"
+}
+
+get_marzneshin_services() {
+    read -p "Enter Services Configuration (Format: ID:LIMIT,ID:LIMIT): " SERVICES
+    if grep -q "^MARZNESHIN_SERVICES=" "$ENV_FILE"; then
+        sed -i.bak "s|^MARZNESHIN_SERVICES=.*|MARZNESHIN_SERVICES=$SERVICES|" "$ENV_FILE"
+    else
+        echo "MARZNESHIN_SERVICES=$SERVICES" >> "$ENV_FILE"
+    fi
+}
+
 set_default_limit() {
     local new_limit="$1"
 
@@ -399,6 +438,11 @@ install_command() {
     if [ "$PANEL_TYPE" = "rebecca" ]; then
         get_panel_sync
         set_default_limit 0
+    elif [ "$PANEL_TYPE" = "marzneshin" ]; then
+        get_marzneshin_sync
+        if [ "$MARZNESHIN_SYNC" = "True" ]; then
+             set_default_limit 0
+        fi
     fi
     
     up_nobetci
