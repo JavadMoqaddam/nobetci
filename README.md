@@ -22,6 +22,10 @@ Nöbetci checks the IPs of all marznode, and if an user IPs exceed the limit, fi
 
 ### Installation
 
+```bash
+sudo bash -c "$(curl -sL https://github.com/JavadMoqaddam/nobetci/raw/main/script.sh)" @ install
+```
+
 To install Nöbetci, see installation guide on [doc](https://muttehit.github.io/nobetci-docs/docs/get-start/nobetci-installation/)
 
 ### Docs

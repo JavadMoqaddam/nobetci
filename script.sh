@@ -16,7 +16,7 @@ SECRET_KEY=""
 API_USERNAME=""
 API_PASSWORD=""
 
-FETCH_REPO="muttehit/nobetci"
+FETCH_REPO="javadmoqaddam/nobetci"
 SCRIPT_URL="https://github.com/$FETCH_REPO/raw/main/script.sh"
 
 colorized_echo() {
@@ -134,8 +134,8 @@ install_nobetci_script() {
 
 install_nobetci() {
     # Fetch releases
-    FILES_URL_PREFIX="https://raw.githubusercontent.com/muttehit/nobetci/master"
-	COMPOSE_FILES_URL="https://raw.githubusercontent.com/muttehit/nobetci/master/deploy"
+    FILES_URL_PREFIX="https://raw.githubusercontent.com/javadmoqaddam/nobetci/master"
+	COMPOSE_FILES_URL="https://raw.githubusercontent.com/javadmoqaddam/nobetci/master/deploy"
  	database=$1
   	nightly=$2
   
