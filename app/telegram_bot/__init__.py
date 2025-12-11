@@ -1,6 +1,6 @@
-
 import asyncio
 import ipaddress
+import logging
 from telegram import Update
 from telegram.ext import (
     ApplicationBuilder,
@@ -11,12 +11,16 @@ from telegram.ext import (
     filters,
     CallbackQueryHandler
 )
-from app.config import TELEGRAM_API_TOKEN
+from app.config import TELEGRAM_API_TOKEN, SYNC_WITH_PANEL, PANEL_USERNAME, PANEL_PASSWORD, PANEL_ADDRESS
 from app import user_limit_db, storage
 from app.db.models import UserLimit
 from app.models.user import User
+from app.models.panel import Panel
 from app.nobetnode import nodes
 from app.utils.telegram import restricted
+from app.db.marzneshin_db import MarzneshinDB
+
+logger = logging.getLogger(__name__)
 
 (
     ADD_USER_NAME,
@@ -27,6 +31,14 @@ from app.utils.telegram import restricted
     DELETE_USER_NAME,
     ACTIVE_IPS_USER_NAME
 ) = range(7)
+
+sync_db_instance = None
+if SYNC_WITH_PANEL:
+    try:
+        _panel = Panel(username=PANEL_USERNAME, password=PANEL_PASSWORD, domain=PANEL_ADDRESS)
+        sync_db_instance = MarzneshinDB(_panel)
+    except Exception as e:
+        logger.error(f"Failed to initialize MarzneshinDB adapter: {e}")
 
 
 async def build_telegram_bot():
@@ -136,11 +148,23 @@ async def get_user(update: Update, _context: ContextTypes.DEFAULT_TYPE):
 
 @restricted
 async def get_user_name(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    context.user_data["name"] = update.message.text.strip()
+    username = update.message.text.strip()
+    context.user_data["name"] = username
 
-    user = user_limit_db.get(UserLimit.name == context.user_data["name"])
+    user = None
 
-    if not user:
+    if SYNC_WITH_PANEL and sync_db_instance:
+        try:
+            user = await sync_db_instance.get(UserLimit.name == username)
+        except Exception:
+            pass
+
+    if not user or (SYNC_WITH_PANEL and user.limit == 0):
+        local_user = user_limit_db.get(UserLimit.name == username)
+        if local_user:
+            user = local_user
+
+    if not user or (user.limit == 0 and not user_limit_db.get(UserLimit.name == username)):
         await context.bot.send_message(
             chat_id=update.effective_chat.id,
             text="User Isn't Exists"
