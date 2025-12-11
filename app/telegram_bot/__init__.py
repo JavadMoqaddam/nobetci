@@ -1,6 +1,7 @@
 
 import asyncio
 import ipaddress
+import logging
 from telegram import Update
 from telegram.ext import (
     ApplicationBuilder,
@@ -11,12 +12,14 @@ from telegram.ext import (
     filters,
     CallbackQueryHandler
 )
-from app.config import TELEGRAM_API_TOKEN
-from app import user_limit_db, storage
+from app.config import TELEGRAM_API_TOKEN, SYNC_WITH_PANEL
+from app import user_limit_db, storage, panel_db
 from app.db.models import UserLimit
 from app.models.user import User
 from app.nobetnode import nodes
 from app.utils.telegram import restricted
+
+logger = logging.getLogger(__name__)
 
 (
     ADD_USER_NAME,
@@ -136,11 +139,23 @@ async def get_user(update: Update, _context: ContextTypes.DEFAULT_TYPE):
 
 @restricted
 async def get_user_name(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    context.user_data["name"] = update.message.text.strip()
+    username = update.message.text.strip()
+    context.user_data["name"] = username
 
-    user = user_limit_db.get(UserLimit.name == context.user_data["name"])
+    user = None
 
-    if not user:
+    if SYNC_WITH_PANEL and panel_db:
+        try:
+            user = await panel_db.get(UserLimit.name == username)
+        except Exception:
+            pass
+
+    if not user or (SYNC_WITH_PANEL and user.limit == 0):
+        local_user = user_limit_db.get(UserLimit.name == username)
+        if local_user:
+            user = local_user
+
+    if not user or (user.limit == 0 and not user_limit_db.get(UserLimit.name == username)):
         await context.bot.send_message(
             chat_id=update.effective_chat.id,
             text="User Isn't Exists"
