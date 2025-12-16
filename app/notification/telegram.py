@@ -17,7 +17,7 @@ async def send_message(
     parse_mode='HTML',
     reply_markup=None
 ):
-    if not TELEGRAM_LOGS or not TELEGRAM_API_TOKEN or not (bot := Bot(token=TELEGRAM_API_TOKEN)):
+    if not TELEGRAM_API_TOKEN or not (bot := Bot(token=TELEGRAM_API_TOKEN)):
         return
 
     message += '\n➖➖➖➖➖➖➖➖\n' + get_ad()
@@ -32,7 +32,8 @@ async def send_message(
                 recipient_id,
                 message,
                 parse_mode=parse_mode,
-                reply_markup=reply_markup
+                reply_markup=reply_markup,
+                disable_web_page_preview=True
             )
         except TelegramError as e:
             logger.error(e)

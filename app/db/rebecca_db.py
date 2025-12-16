@@ -36,7 +36,7 @@ class RebeccaDB(DBBase):
         user = await get_user(username, self.panel)
         self.cache[username] = UserLimit(
             name=user["username"], limit=user['ip_limit'])
-        logger.info(UserLimit(name=user["username"], limit=user['ip_limit']))
+        logger.debug(UserLimit(name=user["username"], limit=user['ip_limit']))
         return UserLimit(name=user["username"], limit=user['ip_limit'])
 
     def get_all(self, condition: callable):
