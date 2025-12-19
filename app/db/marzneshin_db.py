@@ -71,7 +71,7 @@ class MarzneshinDB(DBBase):
         self.cache[username] = user_limit
         
         if limit > 0:
-            logger.info(f"Synced user {username} (Services: {service_ids}) -> Matched Service: {found_service} -> Limit: {limit}")
+            logger.debug(f"Synced user {username} (Services: {service_ids}) -> Matched Service: {found_service} -> Limit: {limit}")
         return UserLimit(name=user_limit.name, limit=user_limit.limit)
 
     def get_all(self, condition: callable):
