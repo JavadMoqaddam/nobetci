@@ -6,7 +6,7 @@ from app.models.user import User, UserStatus
 IP_V6_REGEX = re.compile(r"\[([0-9a-fA-F:]+)\]:\d+\s+accepted")
 IP_V4_REGEX = re.compile(r"(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})")
 EMAIL_REGEX = re.compile(r"email:\s*([A-Za-z0-9._%+-]+)")
-INBOUND_REGEX = re.compile(r"\[(.*?) >> ")
+INBOUND_REGEX = re.compile(r"\[(.*?)\s(?:->|>>)")
 ACCEPTED_REGEX = re.compile(r"accepted\s+(\S+)")
 
 
