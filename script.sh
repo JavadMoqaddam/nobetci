@@ -269,13 +269,13 @@ get_panel_password(){
 
 get_panel_type() {
     while true; do
-        read -p "Enter the panel type (marzneshin, rebecca, marzban): " PANEL_TYPE
+        read -p "Enter the panel type (marzneshin, rebecca, marzban, pasarguard): " PANEL_TYPE
 
         case "$PANEL_TYPE" in
-            marzneshin|rebecca|marzban)
+            marzneshin|rebecca|marzban|pasarguard)
                 break ;;
             *)
-                echo "Invalid panel type. Please enter either 'marzneshin' or 'rebecca' or 'marzban'."
+                echo "Invalid panel type. Please enter either 'marzneshin' or 'rebecca' or 'marzban' or 'pasarguard'."
                 ;;
         esac
     done
