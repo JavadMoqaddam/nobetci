@@ -1,15 +1,15 @@
 import asyncio
+from queue import Queue
 from app.config import SYNC_WITH_PANEL, PANEL_ADDRESS, PANEL_CUSTOM_NODES, PANEL_PASSWORD, PANEL_USERNAME
 from app.models.panel import Panel
-from app.service.check_service import CheckService
 from app.service.marznode_service import TASKS, MarzNodeService
 from app.tasks.nodes import nodes_startup
 from app.utils.panel.marzneshin_panel import get_marznodes, get_token
-from app import user_limit_db, storage, panel_db
+from app import panel_db
 from app.db import node_db
 
 
-async def start_marznode_tasks():
+async def start_marznode_tasks(log_queue: Queue):
     await nodes_startup(node_db.get_all(True))
 
     if panel_db:
@@ -27,8 +27,7 @@ async def start_marznode_tasks():
         except Exception:
             pass
 
-    node_service = MarzNodeService(CheckService(
-        storage, panel_db if (SYNC_WITH_PANEL and panel_db) else user_limit_db))
+    node_service = MarzNodeService(log_queue)
 
     marznodes = await get_marznodes(paneltype)
 

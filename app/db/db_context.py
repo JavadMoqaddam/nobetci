@@ -12,6 +12,9 @@ class DbContext(DBBase, Generic[T]):
         self.model = model
         self.db = SessionLocal()
 
+    def close(self):
+        self.db.close()
+
     def save(self) -> None:
         ""
 

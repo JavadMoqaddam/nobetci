@@ -3,7 +3,7 @@ import inspect
 import logging
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
-from app.config import ACCEPTED, BAN_LAST_USER, DB_REQUEST_LIMIT_ON_CHECKING, DEFAULT_LIMIT, IUL, STL
+from app.config import ACCEPTED, BAN_LAST_USER, DEFAULT_LIMIT, IUL, STL
 from app.db.models import ExceptedIP, UserLimit
 from app.models.user import User
 from app.nobetnode import nodes
@@ -17,21 +17,25 @@ logger = logging.getLogger(__name__)
 
 class CheckService:
 
-    def __init__(self, storage: BaseStorage, specify_limit_db: DBBase):
+    def __init__(self, storage: BaseStorage, specify_limit_db: DBBase, main_loop):
         self._storage = storage
         self._specify_limit_db = specify_limit_db
+        self.main_loop = main_loop
         self._in_process_ips = []
         self.repeated_out_of_limits = []
-        self.sem = asyncio.Semaphore(DB_REQUEST_LIMIT_ON_CHECKING)
 
-    async def check(self, user: User):
+    def check(self, user: User):
+        raw_result = self._specify_limit_db.get(UserLimit.name == user.name)
 
-        async with self.sem:
-            specify_user = self._specify_limit_db.get(
-                UserLimit.name == user.name)
-
-            if inspect.isawaitable(specify_user):
-                specify_user = await specify_user
+        if inspect.isawaitable(raw_result):
+            future = asyncio.run_coroutine_threadsafe(raw_result, self.main_loop)
+            try:
+                specify_user = future.result(timeout=10)
+            except Exception as e:
+                logger.error(f"Async DB fetch error: {e}")
+                return
+        else:
+            specify_user = raw_result
 
         user_limit = specify_user.limit if specify_user is not None else DEFAULT_LIMIT
 
@@ -74,7 +78,11 @@ class CheckService:
 
             self._in_process_ips.append(userByEmail.ip)
 
-            await self.ban_user(userLast if BAN_LAST_USER else userByEmail)
+            ban_future = asyncio.run_coroutine_threadsafe(
+                self.ban_user(userLast if BAN_LAST_USER else userByEmail),
+                self.main_loop
+            )
+            ban_future.add_done_callback(lambda f: f.exception() and logger.error(f"Ban failed: {f.exception()}"))
 
             self._in_process_ips.remove(userByEmail.ip)
 
@@ -85,7 +93,13 @@ class CheckService:
             if ACCEPTED:
                 log_message += '\naccepted: '+userByEmail.accepted
             logger.info(log_message)
-            await send_notification_with_reply_markup(log_message, InlineKeyboardMarkup([[InlineKeyboardButton("Unban IP", callback_data=userByEmail.ip)]]))
+            
+            notif_future = asyncio.run_coroutine_threadsafe(
+                send_notification_with_reply_markup(log_message, InlineKeyboardMarkup(
+                    [[InlineKeyboardButton("Unban IP", callback_data=userByEmail.ip)]])),
+                self.main_loop
+            )
+            notif_future.add_done_callback(lambda f: f.exception() and logger.error(f"Notification failed: {f.exception()}"))
 
     async def ban_user(self, user: User):
         for node in nodes.keys():

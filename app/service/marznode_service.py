@@ -1,11 +1,11 @@
 import logging
 import ssl
 from ssl import SSLError
+from queue import Queue, Full
 from app.config import PANEL_CUSTOM_NODES, PANEL_NODE_RESET
 from app.models.marznode import MarzNode
 from app.models.panel import Panel
 from app.notification.telegram import send_notification
-from app.service.check_service import CheckService
 from app.utils.panel.marzneshin_panel import get_marznodes, get_token
 import random
 import websockets
@@ -23,8 +23,8 @@ task_node_mapping = {}
 
 class MarzNodeService:
 
-    def __init__(self, check_service: CheckService):
-        self._check_service = check_service
+    def __init__(self, log_queue: Queue):
+        self.log_queue = log_queue
 
     async def get_nodes_logs(self, panel_data: Panel, node: MarzNode) -> None:
         ssl_context = ssl.create_default_context()
@@ -40,31 +40,27 @@ class MarzNodeService:
                 token = get_panel_token.token
                 try:
                     url = f"{scheme}://{panel_data.domain}/api/nodes/{node.id}/xray/logs?interval={interval}&token={token}"
-                    async with websockets.connect(
-                        url,
-                        ssl=ssl_context if scheme == "wss" else None,
-                    ) as ws:
-                        log_message = (
-                            "Establishing connection for"
-                            + f" marznode number {node.id} name: {node.name}"
-                        )
-                        logger.info(log_message)
-                        await send_notification(log_message)
+                    async with websockets.connect(url, ssl=ssl_context if scheme == "wss" else None) as ws:
                         while True:
-                            log = await ws.recv()
-                            log = parse_log_to_user(log)
+                            msg = await ws.recv()
+                            log = parse_log_to_user(msg)
                             if log:
                                 log.node = node.name
-                                asyncio.create_task(
-                                    self._check_service.check(log))
-                except SSLError:
-                    break
-                except Exception as error:
-                    panel_data.token = None
+                                try:
+                                    self.log_queue.put_nowait(log)
+                                except Full:
+                                    logger.warning(f"Log queue full. Dropped log from {node.name}")
+
+                except (websockets.exceptions.ConnectionClosed,
+                        websockets.exceptions.InvalidStatusCode,
+                        ConnectionRefusedError,
+                        asyncio.TimeoutError,
+                        OSError,
+                        SSLError) as error:
                     log_message = (
-                        f"Failed to connect to this marznode [marznode id: {node.id}]"
-                        + f" [marznode name: {node.name}]"
-                        + f" [marznode ip: {node.address}] [marznode message: {node.message}]"
+                        f"Connection to Node: {node.name} - {node.address} closed"
+                        + f" [Code: {error.code if hasattr(error, 'code') else 'N/A'}]"
+                        + f" [Reason: {error.reason if hasattr(error, 'reason') else error.message if hasattr(error, 'message') else 'Unknown'}]"
                         + f" [Error Message: {error}] trying to connect 10 second later!"
                     )
                     logger.error(log_message)
